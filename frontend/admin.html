@@ -50,7 +50,8 @@
         // Función para cargar los datos desde la API
         async function cargarPedidos() {
             try {
-                const respuesta = await fetch('http://localhost:8000/admin/pedidos/todos');
+                //const respuesta = await fetch('http://localhost:8000/admin/pedidos/todos');
+                const respuesta = await fetch('/admin/pedidos/todos');
                 const data = await respuesta.json();
 
                 if (!respuesta.ok) return;
