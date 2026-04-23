@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delivery Oscar - Cliente</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-slate-50 p-4 font-sans min-h-screen">
+
+    <div class="max-w-md mx-auto">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-black text-orange-600">🚀 Delivery Oscar</h1>
+            <p class="text-slate-500 text-sm">Rápido, seguro y confiable</p>
+        </div>
+
+        <div class="flex mb-6 bg-white rounded-xl shadow-sm p-1 border border-slate-200">
+            <button onclick="cambiarPestaña('pedir')" id="btnPedir" class="w-1/2 py-2 rounded-lg font-bold transition-all bg-orange-500 text-white">
+                <i class="fas fa-plus-circle mr-1"></i> Pedir
+            </button>
+            <button onclick="cambiarPestaña('rastrear')" id="btnRastrear" class="w-1/2 py-2 rounded-lg font-bold transition-all text-slate-500">
+                <i class="fas fa-search-location mr-1"></i> Rastrear
+            </button>
+        </div>
+
+        <div id="seccionPedir" class="bg-white rounded-2xl shadow-xl p-6 border border-slate-100">
+            <h2 class="text-xl font-bold mb-4 flex items-center"><i class="fas fa-shopping-basket text-orange-500 mr-2"></i> Nuevo Pedido</h2>
+            <form id="formularioPedido" class="space-y-4">
+                <input type="text" id="nombre" class="w-full border p-3 rounded-xl" required placeholder="Tu Nombre">
+                <input type="text" id="recojo" class="w-full border p-3 rounded-xl" required placeholder="¿Dónde recogemos? (Restaurante)">
+                <input type="text" id="entrega" class="w-full border p-3 rounded-xl" required placeholder="¿A dónde lo llevamos? (Tu casa)">
+                <input type="number" step="0.10" id="total" class="w-full border p-3 rounded-xl" required placeholder="Monto a cobrar (S/)">
+                <button type="submit" class="w-full bg-orange-500 text-white py-4 rounded-xl font-black text-lg shadow-lg hover:bg-orange-600 active:scale-95 transition-transform">
+                    ENVIAR PEDIDO
+                </button>
+            </form>
+
+            <div id="ticketGenerado" class="mt-6 hidden bg-orange-50 border-2 border-dashed border-orange-200 p-6 rounded-2xl text-center">
+                <p class="text-orange-800 font-bold">¡Pedido enviado!</p>
+                <h3 class="text-4xl font-black text-slate-800 my-2" id="numTicket">#--</h3>
+                <p class="text-xs text-slate-500">Copia este número para rastrear tu pedido.</p>
+                <button onclick="irARastrear()" class="mt-4 text-orange-600 font-bold text-sm underline">Ir a rastrear ahora</button>
+            </div>
+        </div>
+
+        <div id="seccionRastrear" class="hidden bg-white rounded-2xl shadow-xl p-6 border border-slate-100">
+            <h2 class="text-xl font-bold mb-4"><i class="fas fa-map-marker-alt text-blue-500 mr-2"></i> Rastrear mi Pedido</h2>
+            <div class="flex gap-2 mb-6">
+                <input type="number" id="inputTicket" class="flex-1 border-2 border-slate-200 p-3 rounded-xl focus:border-blue-500 outline-none font-bold text-lg" placeholder="N° de Ticket">
+                <button onclick="buscarPedido()" class="bg-blue-600 text-white px-6 rounded-xl font-bold hover:bg-blue-700">
+                    BUSCAR
+                </button>
+            </div>
+
+            <div id="infoRastreo" class="hidden space-y-4">
+                <div class="text-center p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <p class="text-xs text-slate-500 uppercase tracking-widest font-bold">Estado Actual</p>
+                    <p id="estadoPedido" class="text-2xl font-black text-blue-600 uppercase">---</p>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="p-3 bg-green-50 rounded-xl">
+                        <p class="text-[10px] text-green-700 font-bold uppercase">A pagar</p>
+                        <p id="montoPedido" class="font-bold text-lg">S/ 0.00</p>
+                    </div>
+                    <div id="bloqueTiempo" class="p-3 bg-blue-50 rounded-xl hidden">
+                        <p class="text-[10px] text-blue-700 font-bold uppercase">Llega en</p>
+                        <p id="tiempoPedido" class="font-bold text-lg">-- min</p>
+                    </div>
+                </div>
+
+                <div id="infoExtra" class="p-4 bg-yellow-50 text-yellow-800 text-sm rounded-xl italic text-center border border-yellow-100 hidden">
+                    </div>
+            </div>
+
+            <div id="errorRastreo" class="hidden text-center p-4 bg-red-50 text-red-600 rounded-xl font-bold text-sm">
+                <i class="fas fa-exclamation-circle mr-1"></i> El ticket no existe o es incorrecto.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+
+        // 1. LÓGICA DE PESTAÑAS
+        function cambiarPestaña(tipo) {
+            const pedir = document.getElementById('seccionPedir');
+            const rastrear = document.getElementById('seccionRastrear');
+            const btnP = document.getElementById('btnPedir');
+            const btnR = document.getElementById('btnRastrear');
+
+            if (tipo === 'pedir') {
+                pedir.classList.remove('hidden');
+                rastrear.classList.add('hidden');
+                btnP.className = "w-1/2 py-2 rounded-lg font-bold bg-orange-500 text-white";
+                btnR.className = "w-1/2 py-2 rounded-lg font-bold text-slate-500";
+            } else {
+                pedir.classList.add('hidden');
+                rastrear.classList.remove('hidden');
+                btnR.className = "w-1/2 py-2 rounded-lg font-bold bg-blue-600 text-white";
+                btnP.className = "w-1/2 py-2 rounded-lg font-bold text-slate-500";
+            }
+        }
+
+        function irARastrear() {
+            const id = document.getElementById('numTicket').innerText.replace('#', '');
+            document.getElementById('inputTicket').value = id;
+            cambiarPestaña('rastrear');
+            buscarPedido();
+        }
+
+        // 2. LÓGICA DE CREAR PEDIDO
+        document.getElementById('formularioPedido').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const datos = {
+                cliente_nombre: document.getElementById('nombre').value,
+                direccion_recojo: document.getElementById('recojo').value,
+                direccion_entrega: document.getElementById('entrega').value,
+                total_a_cobrar: parseFloat(document.getElementById('total').value)
+            };
+
+            const res = await fetch(`${API_URL}/cliente/pedido/crear`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(datos)
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                document.getElementById('formularioPedido').classList.add('hidden');
+                document.getElementById('ticketGenerado').classList.remove('hidden');
+                document.getElementById('numTicket').innerText = `#${data.tu_numero_de_ticket}`;
+            }
+        });
+
+        // 3. LÓGICA DE RASTREO (LA NUEVA FUNCIÓN)
+        async function buscarPedido() {
+            const ticket_id = document.getElementById('inputTicket').value;
+            const infoDiv = document.getElementById('infoRastreo');
+            const errorDiv = document.getElementById('errorRastreo');
+
+            if (!ticket_id) return;
+
+            try {
+                const res = await fetch(`${API_URL}/cliente/rastreo/${ticket_id}`);
+                const data = await res.json();
+
+                if (res.ok) {
+                    infoDiv.classList.remove('hidden');
+                    errorDiv.classList.add('hidden');
+
+                    document.getElementById('estadoPedido').innerText = data.estado_actual;
+                    document.getElementById('montoPedido').innerText = data.a_pagar_al_repartidor;
+
+                    // Mostrar tiempo si existe
+                    if (data.llegada_estimada) {
+                        document.getElementById('bloqueTiempo').classList.remove('hidden');
+                        document.getElementById('tiempoPedido').innerText = data.llegada_estimada;
+                    } else {
+                        document.getElementById('bloqueTiempo').classList.add('hidden');
+                    }
+
+                    // Mostrar info extra si existe
+                    if (data.info_adicional) {
+                        document.getElementById('infoExtra').classList.remove('hidden');
+                        document.getElementById('infoExtra').innerText = data.info_adicional;
+                    } else {
+                        document.getElementById('infoExtra').classList.add('hidden');
+                    }
+                } else {
+                    infoDiv.classList.add('hidden');
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (e) {
+                alert("Error conectando al servidor");
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>App Motorizado</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 font-sans pb-20">
+
+    <div id="pantallaLogin" class="min-h-screen flex items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm text-center">
+            <i class="fas fa-motorcycle text-5xl text-orange-500 mb-4"></i>
+            <h1 class="text-2xl font-black mb-6 text-gray-800">Identifícate</h1>
+            <input type="number" id="inputMiId" placeholder="Tu ID (Ej. 12)" class="w-full border-2 border-gray-300 p-4 rounded-xl text-center text-2xl font-bold mb-4 focus:border-orange-500 outline-none">
+            <button onclick="iniciarSesion()" class="w-full bg-orange-500 text-white p-4 rounded-xl font-bold text-xl hover:bg-orange-600 active:bg-orange-700">
+                Entrar a Trabajar
+            </button>
+        </div>
+    </div>
+
+    <div id="pantallaTrabajo" class="hidden">
+        <div class="bg-slate-900 text-white p-4 sticky top-0 z-10 shadow-md flex justify-between items-center">
+            <div class="font-bold text-lg"><i class="fas fa-helmet-safety text-orange-500 mr-2"></i> ID: <span id="mostrarMiId"></span></div>
+            <button onclick="cerrarSesion()" class="text-slate-400 text-sm"><i class="fas fa-sign-out-alt"></i> Salir</button>
+        </div>
+
+        <div class="p-4 space-y-6">
+            
+            <div>
+                <h2 class="font-black text-gray-500 uppercase tracking-wider mb-3 text-sm">📍 Mi Viaje Activo</h2>
+                <div id="contenedorMiViaje" class="space-y-4">
+                    </div>
+            </div>
+
+            <hr class="border-gray-300 border-2 border-dashed">
+
+            <div>
+                <h2 class="font-black text-gray-500 uppercase tracking-wider mb-3 text-sm">📡 Pedidos Libres (Radar)</h2>
+                <div id="contenedorDisponibles" class="space-y-4">
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let miId = localStorage.getItem('motorizado_id');
+        const API_URL = 'http://localhost:8000';
+
+        // Iniciar la app
+        if (miId) {
+            mostrarPantallaTrabajo();
+        }
+
+        function iniciarSesion() {
+            const idIngresado = document.getElementById('inputMiId').value;
+            if (idIngresado) {
+                miId = idIngresado;
+                localStorage.setItem('motorizado_id', miId);
+                mostrarPantallaTrabajo();
+            } else {
+                alert("Por favor ingresa un número de ID");
+            }
+        }
+
+        function cerrarSesion() {
+            localStorage.removeItem('motorizado_id');
+            location.reload(); // Recarga la página
+        }
+
+        function mostrarPantallaTrabajo() {
+            document.getElementById('pantallaLogin').classList.add('hidden');
+            document.getElementById('pantallaTrabajo').classList.remove('hidden');
+            document.getElementById('mostrarMiId').innerText = miId;
+            cargarDatos();
+            // Actualizar el radar cada 10 segundos
+            setInterval(cargarDatos, 10000); 
+        }
+
+        async function cargarDatos() {
+            try {
+                // 1. CARGAR DISPONIBLES (Pendientes)
+                const resDisp = await fetch(`${API_URL}/motorizado/pedidos_disponibles`);
+                const disponibles = await resDisp.json();
+                
+                const contDisp = document.getElementById('contenedorDisponibles');
+                contDisp.innerHTML = '';
+                
+                if (disponibles.length > 0) {
+                    disponibles.forEach(pedido => {
+                        contDisp.innerHTML += `
+                            <div class="bg-white rounded-2xl shadow-sm border-l-8 border-blue-500 p-4">
+                                <div class="flex justify-between items-start mb-2">
+                                    <span class="font-bold text-gray-800">#${pedido.id} - ${pedido.cliente_nombre}</span>
+                                    <span class="font-black text-green-600">S/ ${pedido.total_a_cobrar.toFixed(2)}</span>
+                                </div>
+                                <div class="text-sm text-gray-600 mb-4 space-y-1">
+                                    <p><i class="fas fa-store w-5 text-center text-gray-400"></i> ${pedido.direccion_recojo}</p>
+                                    <p><i class="fas fa-map-marker-alt w-5 text-center text-gray-400"></i> ${pedido.direccion_entrega}</p>
+                                </div>
+                                <button onclick="aceptarPedido(${pedido.id})" class="w-full bg-blue-500 text-white py-3 rounded-xl font-bold text-lg hover:bg-blue-600 active:bg-blue-700 shadow-md">
+                                    ¡ACEPTAR VIAJE!
+                                </button>
+                            </div>
+                        `;
+                    });
+                } else {
+                    contDisp.innerHTML = '<p class="text-center text-gray-500 italic py-4">No hay pedidos nuevos...</p>';
+                }
+
+                // 2. CARGAR MI VIAJE ACTUAL
+                // Truco MVP: Leemos todos los pedidos del admin y filtramos los que son de este motorizado y no están terminados
+                const resTodos = await fetch(`${API_URL}/admin/pedidos/todos`);
+                const dataTodos = await resTodos.json();
+                
+                const misViajes = dataTodos.pedidos.filter(p => p.motorizado_id == miId && (p.estado == "Aceptado" || p.estado == "Recogido" || p.estado == "En Camino"));
+                
+                const contMiViaje = document.getElementById('contenedorMiViaje');
+                contMiViaje.innerHTML = '';
+
+                if (misViajes.length > 0) {
+                    misViajes.forEach(pedido => {
+                        
+                        // Generamos el botón dinámico según el estado en el que esté
+                        let botonAccion = '';
+                        if (pedido.estado === "Aceptado") {
+                            botonAccion = `<button onclick="cambiarEstado(${pedido.id}, 'Recogido')" class="w-full bg-yellow-500 text-white py-4 rounded-xl font-black text-xl hover:bg-yellow-600 shadow-lg active:scale-95 transition-transform"><i class="fas fa-box"></i> YA LO RECOGÍ</button>`;
+                        } else if (pedido.estado === "Recogido") {
+                            botonAccion = `<button onclick="cambiarEstado(${pedido.id}, 'En Camino')" class="w-full bg-purple-500 text-white py-4 rounded-xl font-black text-xl hover:bg-purple-600 shadow-lg active:scale-95 transition-transform"><i class="fas fa-motorcycle"></i> ESTOY EN CAMINO</button>`;
+                        } else if (pedido.estado === "En Camino") {
+                            botonAccion = `<button onclick="cambiarEstado(${pedido.id}, 'Entregado')" class="w-full bg-green-500 text-white py-4 rounded-xl font-black text-xl hover:bg-green-600 shadow-lg active:scale-95 transition-transform"><i class="fas fa-check-circle"></i> ¡ENTREGADO!</button>`;
+                        }
+
+                        contMiViaje.innerHTML += `
+                            <div class="bg-white rounded-2xl shadow-lg border-2 border-orange-400 p-4 relative overflow-hidden">
+                                <div class="absolute top-0 right-0 bg-orange-400 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
+                                    EN CURSO
+                                </div>
+                                <h3 class="font-black text-2xl text-gray-800 mb-1">Viaje #${pedido.id}</h3>
+                                <p class="text-xl font-bold text-green-600 mb-4">Cobrar: S/ ${pedido.total_a_cobrar.toFixed(2)}</p>
+                                
+                                <div class="bg-gray-50 p-3 rounded-lg mb-4 text-sm text-gray-700">
+                                    <p class="mb-2"><strong><i class="fas fa-store text-orange-500"></i> Recoger en:</strong><br>${pedido.direccion_recojo}</p>
+                                    <p><strong><i class="fas fa-map-marker-alt text-red-500"></i> Entregar a (${pedido.cliente_nombre}):</strong><br>${pedido.direccion_entrega}</p>
+                                </div>
+                                
+                                ${botonAccion}
+                            </div>
+                        `;
+                    });
+                } else {
+                    contMiViaje.innerHTML = '<p class="text-center text-gray-500 py-2">No tienes viajes activos. Acepta uno del radar.</p>';
+                }
+
+            } catch (error) {
+                console.error("Error cargando datos:", error);
+            }
+        }
+
+        // LÓGICA DE ACTUALIZACIÓN
+        async function aceptarPedido(ticket_id) {
+            // Un prompt nativo para pedir el tiempo estimado (fácil y rápido para MVP)
+            let tiempo = prompt("¿En cuántos minutos crees llegar al destino?");
+            if (!tiempo || isNaN(tiempo)) {
+                alert("Debes ingresar un número válido de minutos.");
+                return;
+            }
+
+            const payload = {
+                nuevo_estado: "Aceptado",
+                motorizado_id: parseInt(miId),
+                tiempo_estimado_min: parseInt(tiempo)
+            };
+
+            await enviarActualizacion(ticket_id, payload);
+        }
+
+        async function cambiarEstado(ticket_id, nuevo_estado) {
+            const payload = { nuevo_estado: nuevo_estado };
+            await enviarActualizacion(ticket_id, payload);
+        }
+
+        async function enviarActualizacion(ticket_id, payload) {
+            try {
+                const res = await fetch(`${API_URL}/motorizado/pedido/${ticket_id}/actualizar`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    cargarDatos(); // Recargar la pantalla para mostrar los nuevos botones
+                } else {
+                    const error = await res.json();
+                    alert("Error: " + error.detail);
+                }
+            } catch (e) {
+                alert("Error de conexión");
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Administrador - Delivery</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-slate-900 text-white min-h-screen p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <div class="flex justify-between items-center mb-8 bg-slate-800 p-6 rounded-2xl shadow-xl border border-slate-700">
+            <div>
+                <h1 class="text-3xl font-bold text-blue-400">📊 Panel de Control</h1>
+                <p class="text-slate-400">Monitoreo de pedidos en tiempo real</p>
+            </div>
+            <div class="text-right">
+                <span id="contadorPedidos" class="text-4xl font-black text-white">0</span>
+                <p class="text-xs uppercase tracking-widest text-slate-500">Pedidos Totales</p>
+            </div>
+        </div>
+
+        <div class="bg-slate-800 rounded-2xl shadow-xl overflow-hidden border border-slate-700">
+            <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+                <h2 class="font-bold text-lg"><i class="fas fa-list-ul mr-2"></i> Lista de Entregas</h2>
+                <span class="text-xs text-slate-400 animate-pulse">● Actualizando en vivo...</span>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-700 text-slate-300 text-xs uppercase">
+                        <tr>
+                            <th class="p-4">Ticket</th>
+                            <th class="p-4">Cliente</th>
+                            <th class="p-4">Ruta (Recojo -> Entrega)</th>
+                            <th class="p-4">Pago</th>
+                            <th class="p-4 text-center">Estado</th>
+                            <th class="p-4">Motorizado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaPedidos" class="divide-y divide-slate-700">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Función para cargar los datos desde la API
+        async function cargarPedidos() {
+            try {
+                const respuesta = await fetch('http://localhost:8000/admin/pedidos/todos');
+                const data = await respuesta.json();
+
+                if (!respuesta.ok) return;
+
+                // Actualizar el contador grande
+                document.getElementById('contadorPedidos').innerText = data.total_activos;
+
+                const tabla = document.getElementById('tablaPedidos');
+                tabla.innerHTML = ''; // Limpiamos la tabla para recargarla
+
+                data.pedidos.forEach(pedido => {
+                    // Elegimos el color según el estado
+                    const colores = {
+                        "Pendiente": "bg-red-500/20 text-red-400 border-red-500/50",
+                        "Aceptado": "bg-blue-500/20 text-blue-400 border-blue-500/50",
+                        "Recogido": "bg-yellow-500/20 text-yellow-400 border-yellow-500/50",
+                        "En Camino": "bg-purple-500/20 text-purple-400 border-purple-500/50",
+                        "Entregado": "bg-green-500/20 text-green-400 border-green-500/50",
+                        "Cancelado": "bg-slate-500/20 text-slate-400 border-slate-500/50"
+                    };
+
+                    const badgeColor = colores[pedido.estado] || colores["Pendiente"];
+
+                    const fila = `
+                        <tr class="hover:bg-slate-700/50 transition-colors">
+                            <td class="p-4 font-mono font-bold text-blue-300">#${pedido.id}</td>
+                            <td class="p-4">
+                                <div class="font-bold">${pedido.cliente_nombre}</div>
+                            </td>
+                            <td class="p-4 text-sm">
+                                <div class="text-slate-300"><i class="fas fa-store text-xs mr-1"></i> ${pedido.direccion_recojo}</div>
+                                <div class="text-slate-500"><i class="fas fa-map-marker-alt text-xs mr-1"></i> ${pedido.direccion_entrega}</div>
+                            </td>
+                            <td class="p-4 font-bold text-green-400">S/ ${pedido.total_a_cobrar.toFixed(2)}</td>
+                            <td class="p-4 text-center">
+                                <span class="px-3 py-1 rounded-full text-xs font-bold border ${badgeColor}">
+                                    ${pedido.estado}
+                                </span>
+                            </td>
+                            <td class="p-4 text-sm text-slate-400">
+                                ${pedido.motorizado_id ? `<i class="fas fa-motorcycle mr-1"></i> ID: ${pedido.motorizado_id}` : '<span class="italic opacity-50">Esperando...</span>'}
+                            </td>
+                        </tr>
+                    `;
+                    tabla.innerHTML += fila;
+                });
+
+            } catch (error) {
+                console.error("Error al conectar con el servidor:", error);
+            }
+        }
+
+        // CARGA INICIAL
+        cargarPedidos();
+
+        // ACTUALIZACIÓN AUTOMÁTICA (Cada 5 segundos para que sea "Tiempo Real")
+        setInterval(cargarPedidos, 5000);
+    </script>
+</body>
+</html>
