@@ -31,6 +31,14 @@
                 <input type="text" id="recojo" class="w-full border p-3 rounded-xl" required placeholder="¿Dónde recogemos? (Restaurante)">
                 <input type="text" id="entrega" class="w-full border p-3 rounded-xl" required placeholder="¿A dónde lo llevamos? (Tu casa)">
                 <input type="number" step="0.10" id="total" class="w-full border p-3 rounded-xl" required placeholder="Monto a cobrar (S/)">
+                
+                <select id="pago" class="w-full border p-3 rounded-xl bg-white text-gray-700" required>
+                    <option value="" disabled selected>¿Cómo vas a pagar?</option>
+                    <option value="Efectivo">💵 Efectivo</option>
+                    <option value="Yape">📱 Yape</option>
+                    <option value="Plin">📱 Plin</option>
+                </select>
+
                 <button type="submit" class="w-full bg-orange-500 text-white py-4 rounded-xl font-black text-lg shadow-lg hover:bg-orange-600 active:scale-95 transition-transform">
                     ENVIAR PEDIDO
                 </button>
@@ -81,8 +89,7 @@
     </div>
 
     <script>
-        //const API_URL = 'http://localhost:8000';
-        const API_URL = '';
+        const API_URL = ''; // Restaurado para que funcione localmente
 
         // 1. LÓGICA DE PESTAÑAS
         function cambiarPestaña(tipo) {
@@ -114,11 +121,14 @@
         // 2. LÓGICA DE CREAR PEDIDO
         document.getElementById('formularioPedido').addEventListener('submit', async (e) => {
             e.preventDefault();
+            
+            // NUEVO: Agregamos metodo_pago al objeto de datos
             const datos = {
                 cliente_nombre: document.getElementById('nombre').value,
                 direccion_recojo: document.getElementById('recojo').value,
                 direccion_entrega: document.getElementById('entrega').value,
-                total_a_cobrar: parseFloat(document.getElementById('total').value)
+                total_a_cobrar: parseFloat(document.getElementById('total').value),
+                metodo_pago: document.getElementById('pago').value 
             };
 
             const res = await fetch(`${API_URL}/cliente/pedido/crear`, {
@@ -132,10 +142,13 @@
                 document.getElementById('formularioPedido').classList.add('hidden');
                 document.getElementById('ticketGenerado').classList.remove('hidden');
                 document.getElementById('numTicket').innerText = `#${data.tu_numero_de_ticket}`;
+            } else {
+                // Pequeña alerta por si falta enviar algún dato obligatorio según schemas.py
+                alert("Error al crear pedido: " + (data.detail ? JSON.stringify(data.detail) : "Verifica los datos"));
             }
         });
 
-        // 3. LÓGICA DE RASTREO (LA NUEVA FUNCIÓN)
+        // 3. LÓGICA DE RASTREO
         async function buscarPedido() {
             const ticket_id = document.getElementById('inputTicket').value;
             const infoDiv = document.getElementById('infoRastreo');
