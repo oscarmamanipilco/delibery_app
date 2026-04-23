@@ -7,6 +7,7 @@ class PedidoCrear(BaseModel):
     direccion_recojo: str
     direccion_entrega: str
     total_a_cobrar: float
+    metodo_pago: str  # <--- AHORA EXIGIMOS SABER CÓMO PAGARÁ (Efectivo, Yape, Plin)
 
 # Lo que el motorizado envía cuando cambia el estado de su viaje
 class ActualizarEstado(BaseModel):

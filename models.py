@@ -12,7 +12,7 @@ class PedidoDB(Base):
     direccion_recojo = Column(String)
     direccion_entrega = Column(String)
     total_a_cobrar = Column(Float)
-    
+    metodo_pago = Column(String, default="Efectivo") # <--- NUEVA COLUMNA
     # Control de Estado
     # Estados válidos: Pendiente, Aceptado, Recogido, En Camino, Entregado, Cancelado
     estado = Column(String, default="Pendiente") 

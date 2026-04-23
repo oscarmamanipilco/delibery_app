@@ -13,57 +13,100 @@
         <div class="flex justify-between items-center mb-8 bg-slate-800 p-6 rounded-2xl shadow-xl border border-slate-700">
             <div>
                 <h1 class="text-3xl font-bold text-blue-400">📊 Panel de Control</h1>
-                <p class="text-slate-400">Monitoreo de pedidos en tiempo real</p>
+                <p class="text-slate-400">Monitoreo y Liquidación</p>
             </div>
+            
+            <div class="flex space-x-2 bg-slate-900 p-1 rounded-lg border border-slate-700 mr-4">
+                <button onclick="verPestana('monitoreo')" id="btnMonitoreo" class="px-4 py-2 bg-blue-600 rounded-md font-bold transition-all shadow-md">En Vivo</button>
+                <button onclick="verPestana('liquidacion')" id="btnLiquidacion" class="px-4 py-2 text-slate-400 hover:text-white transition-all">Cierre de Turno</button>
+            </div>
+
             <div class="text-right">
                 <span id="contadorPedidos" class="text-4xl font-black text-white">0</span>
                 <p class="text-xs uppercase tracking-widest text-slate-500">Pedidos Totales</p>
             </div>
         </div>
 
-        <div class="bg-slate-800 rounded-2xl shadow-xl overflow-hidden border border-slate-700">
-            <div class="p-4 border-b border-slate-700 flex justify-between items-center">
-                <h2 class="font-bold text-lg"><i class="fas fa-list-ul mr-2"></i> Lista de Entregas</h2>
-                <span class="text-xs text-slate-400 animate-pulse">● Actualizando en vivo...</span>
-            </div>
-            
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead class="bg-slate-700 text-slate-300 text-xs uppercase">
-                        <tr>
-                            <th class="p-4">Ticket</th>
-                            <th class="p-4">Cliente</th>
-                            <th class="p-4">Ruta (Recojo -> Entrega)</th>
-                            <th class="p-4">Pago</th>
-                            <th class="p-4 text-center">Estado</th>
-                            <th class="p-4">Motorizado</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tablaPedidos" class="divide-y divide-slate-700">
-                        </tbody>
-                </table>
+        <div id="seccionMonitoreo">
+            <div class="bg-slate-800 rounded-2xl shadow-xl overflow-hidden border border-slate-700">
+                <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+                    <h2 class="font-bold text-lg"><i class="fas fa-list-ul mr-2"></i> Lista de Entregas</h2>
+                    <span class="text-xs text-slate-400 animate-pulse">● Actualizando en vivo...</span>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-slate-700 text-slate-300 text-xs uppercase">
+                            <tr>
+                                <th class="p-4">Ticket</th>
+                                <th class="p-4">Cliente</th>
+                                <th class="p-4">Ruta (Recojo -> Entrega)</th>
+                                <th class="p-4">Pago</th>
+                                <th class="p-4 text-center">Estado</th>
+                                <th class="p-4">Motorizado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaPedidos" class="divide-y divide-slate-700">
+                            </tbody>
+                    </table>
+                </div>
             </div>
         </div>
+
+        <div id="seccionLiquidacion" class="hidden space-y-6">
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
+                <h2 class="text-xl font-bold mb-6 text-white border-b border-slate-700 pb-3">
+                    <i class="fas fa-calculator text-green-400 mr-2"></i> Cuadre de Caja por Motorizado
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="tarjetasCuadre">
+                    </div>
+            </div>
+        </div>
+
     </div>
 
     <script>
-        // Función para cargar los datos desde la API
+        const API_URL = 'http://localhost:8000'; // Centralizamos la URL
+
+        // ==========================================
+        // 1. LÓGICA DE PESTAÑAS
+        // ==========================================
+        function verPestana(cual) {
+            if (cual === 'monitoreo') {
+                document.getElementById('seccionMonitoreo').classList.remove('hidden');
+                document.getElementById('seccionLiquidacion').classList.add('hidden');
+                document.getElementById('btnMonitoreo').classList.replace('text-slate-400', 'bg-blue-600');
+                document.getElementById('btnMonitoreo').classList.add('shadow-md');
+                document.getElementById('btnLiquidacion').classList.replace('bg-blue-600', 'text-slate-400');
+                document.getElementById('btnLiquidacion').classList.remove('shadow-md');
+            } else {
+                document.getElementById('seccionMonitoreo').classList.add('hidden');
+                document.getElementById('seccionLiquidacion').classList.remove('hidden');
+                document.getElementById('btnLiquidacion').classList.replace('text-slate-400', 'bg-blue-600');
+                document.getElementById('btnLiquidacion').classList.add('shadow-md');
+                document.getElementById('btnMonitoreo').classList.replace('bg-blue-600', 'text-slate-400');
+                document.getElementById('btnMonitoreo').classList.remove('shadow-md');
+                
+                cargarLiquidacion(); // Traer los datos matemáticos al abrir la pestaña
+            }
+        }
+
+        // ==========================================
+        // 2. LÓGICA ORIGINAL DE MONITOREO
+        // ==========================================
         async function cargarPedidos() {
             try {
-                //const respuesta = await fetch('http://localhost:8000/admin/pedidos/todos');
-                const respuesta = await fetch('/admin/pedidos/todos');
+                const respuesta = await fetch(`${API_URL}/admin/pedidos/todos`);
                 const data = await respuesta.json();
 
                 if (!respuesta.ok) return;
 
-                // Actualizar el contador grande
                 document.getElementById('contadorPedidos').innerText = data.total_activos;
-
                 const tabla = document.getElementById('tablaPedidos');
-                tabla.innerHTML = ''; // Limpiamos la tabla para recargarla
+                tabla.innerHTML = ''; 
 
                 data.pedidos.forEach(pedido => {
-                    // Elegimos el color según el estado
                     const colores = {
                         "Pendiente": "bg-red-500/20 text-red-400 border-red-500/50",
                         "Aceptado": "bg-blue-500/20 text-blue-400 border-blue-500/50",
@@ -74,6 +117,9 @@
                     };
 
                     const badgeColor = colores[pedido.estado] || colores["Pendiente"];
+                    
+                    // Aseguramos que no falle si no hay método de pago registrado
+                    const metodoPago = pedido.metodo_pago ? pedido.metodo_pago : "No definido";
 
                     const fila = `
                         <tr class="hover:bg-slate-700/50 transition-colors">
@@ -85,14 +131,17 @@
                                 <div class="text-slate-300"><i class="fas fa-store text-xs mr-1"></i> ${pedido.direccion_recojo}</div>
                                 <div class="text-slate-500"><i class="fas fa-map-marker-alt text-xs mr-1"></i> ${pedido.direccion_entrega}</div>
                             </td>
-                            <td class="p-4 font-bold text-green-400">S/ ${pedido.total_a_cobrar.toFixed(2)}</td>
+                            <td class="p-4">
+                                <div class="font-bold text-green-400">S/ ${pedido.total_a_cobrar.toFixed(2)}</div>
+                                <div class="text-[10px] text-slate-400 uppercase">${metodoPago}</div>
+                            </td>
                             <td class="p-4 text-center">
                                 <span class="px-3 py-1 rounded-full text-xs font-bold border ${badgeColor}">
                                     ${pedido.estado}
                                 </span>
                             </td>
                             <td class="p-4 text-sm text-slate-400">
-                                ${pedido.motorizado_id ? `<i class="fas fa-motorcycle mr-1"></i> ID: ${pedido.motorizado_id}` : '<span class="italic opacity-50">Esperando...</span>'}
+                                ${pedido.motorizado_id ? `<i class="fas fa-motorcycle mr-1 text-blue-400"></i> ID: ${pedido.motorizado_id}` : '<span class="italic opacity-50">Esperando...</span>'}
                             </td>
                         </tr>
                     `;
@@ -104,10 +153,56 @@
             }
         }
 
-        // CARGA INICIAL
-        cargarPedidos();
+        // ==========================================
+        // 3. NUEVA LÓGICA DE LIQUIDACIÓN
+        // ==========================================
+        async function cargarLiquidacion() {
+            try {
+                const res = await fetch(`${API_URL}/admin/liquidacion`);
+                const data = await res.json();
+                
+                const contenedor = document.getElementById('tarjetasCuadre');
+                contenedor.innerHTML = ''; 
 
-        // ACTUALIZACIÓN AUTOMÁTICA (Cada 5 segundos para que sea "Tiempo Real")
+                if (data.length === 0) {
+                    contenedor.innerHTML = '<p class="text-slate-400 col-span-3 text-center py-8">No hay pedidos entregados para liquidar aún.</p>';
+                    return;
+                }
+
+                data.forEach(m => {
+                    contenedor.innerHTML += `
+                        <div class="bg-slate-900 p-5 rounded-xl border border-slate-600 shadow-lg relative overflow-hidden">
+                            <div class="absolute top-0 right-0 w-16 h-16 bg-blue-500/10 rounded-bl-full -mr-4 -mt-4"></div>
+                            
+                            <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-3">
+                                <h3 class="font-black text-xl text-white"><i class="fas fa-motorcycle text-blue-400 mr-2"></i> Chofer #${m.motorizado_id}</h3>
+                                <span class="bg-blue-600 text-white px-2 py-1 rounded text-xs font-bold shadow-md">${m.total_viajes} Viajes</span>
+                            </div>
+                            
+                            <div class="space-y-3">
+                                <div class="flex justify-between items-center bg-slate-800 p-2 rounded">
+                                    <span class="text-sm text-slate-300"><i class="fas fa-money-bill-wave text-green-400 mr-1"></i> Efectivo (Entregar)</span>
+                                    <span class="font-bold text-green-400">S/ ${m.efectivo_en_mano.toFixed(2)}</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-slate-800 p-2 rounded">
+                                    <span class="text-sm text-slate-300"><i class="fas fa-mobile-alt text-purple-400 mr-1"></i> Yape/Plin</span>
+                                    <span class="font-bold text-purple-400">S/ ${m.yape_plin_cuenta.toFixed(2)}</span>
+                                </div>
+                                <div class="pt-3 mt-3 border-t border-slate-700 flex justify-between items-center">
+                                    <span class="font-bold text-slate-400 uppercase text-xs">Producción Total</span>
+                                    <span class="font-black text-2xl text-white">S/ ${m.total_general.toFixed(2)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch (error) {
+                console.error("Error al cargar liquidación:", error);
+            }
+        }
+
+        // INICIAR
+        cargarPedidos();
         setInterval(cargarPedidos, 5000);
     </script>
 </body>
